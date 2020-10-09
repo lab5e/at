@@ -9,7 +9,7 @@
 //
 //    ...
 //
-//    device := n211.New(os.Args[1], baudRate)
+//    device := n211.New(serialPort, baudRate)
 //    if err := device.Start(); err != nil {
 //        log.Fatalf("Error opening device: %v", err)
 //    }
