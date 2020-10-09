@@ -12,13 +12,13 @@ import (
 
 var (
 	// IMSIRegex ...
-	IMSIRegex = regexp.MustCompile("([0-9]{5,15})")
+	imsiRegex = regexp.MustCompile("([0-9]{5,15})")
 
 	// IMEIRegex ...
-	IMEIRegex = regexp.MustCompile("\\+CGSN: ([0-9]{5,15})")
+	imeiRegex = regexp.MustCompile("\\+CGSN: ([0-9]{5,15})")
 
 	// CCIDRegex ...
-	CCIDRegex = regexp.MustCompile("\\+CCID: ([0-9]{5,15})")
+	ccidRegex = regexp.MustCompile("\\+CCID: ([0-9]{5,15})")
 )
 
 // AT ...
@@ -40,7 +40,7 @@ func (d *n211) GetIMSI() (string, error) {
 	var imsi string
 
 	err := d.transact("AT+CIMI", func(s string) error {
-		sub := IMSIRegex.FindStringSubmatch(s)
+		sub := imsiRegex.FindStringSubmatch(s)
 		if len(sub) > 0 {
 			imsi = sub[1]
 		}
@@ -54,7 +54,7 @@ func (d *n211) GetIMEI() (string, error) {
 	var imsi string
 
 	err := d.transact("AT+CGSN=1", func(s string) error {
-		sub := IMSIRegex.FindStringSubmatch(s)
+		sub := imeiRegex.FindStringSubmatch(s)
 		if len(sub) > 0 {
 			imsi = sub[1]
 		}
@@ -68,7 +68,7 @@ func (d *n211) GetCCID() (string, error) {
 	var ccid string
 
 	err := d.transact("AT+CCID", func(s string) error {
-		sub := IMSIRegex.FindStringSubmatch(s)
+		sub := ccidRegex.FindStringSubmatch(s)
 		if len(sub) > 0 {
 			ccid = sub[1]
 		}
