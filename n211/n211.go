@@ -14,7 +14,7 @@ import (
 )
 
 // N211 maintains the state for connection to Sara N211
-type N211 struct {
+type n211 struct {
 	device      string
 	baudRate    int
 	port        *serial.Port
@@ -41,7 +41,7 @@ var (
 // New creates a new instance of the N211 interface
 func New(device string, baudRate int) at.Device {
 	cctx, cancel := context.WithCancel(context.Background())
-	return &N211{
+	return &n211{
 		device:      device,
 		baudRate:    baudRate,
 		inputChan:   make(chan string, 10),
@@ -53,8 +53,7 @@ func New(device string, baudRate int) at.Device {
 	}
 }
 
-// Start opens the serial port and starts the reader goroutine
-func (d *N211) Start() error {
+func (d *n211) Start() error {
 	p, err := serial.OpenPort(&serial.Config{
 		Name: d.device,
 		Baud: d.baudRate,
@@ -71,8 +70,7 @@ func (d *N211) Start() error {
 	return nil
 }
 
-// Close the client
-func (d *N211) Close() {
+func (d *n211) Close() {
 	if d.port != nil {
 		d.port.Close()
 	}
@@ -81,7 +79,7 @@ func (d *N211) Close() {
 
 // inputReader reads from the input channel and sends the strings as
 // byte arrays to the serial port.
-func (d *N211) inputReader(ctx context.Context) {
+func (d *n211) inputReader(ctx context.Context) {
 	for {
 		select {
 		case line := <-d.inputChan:
@@ -97,7 +95,7 @@ func (d *N211) inputReader(ctx context.Context) {
 }
 
 // outputReader reads output from the device and prints it out
-func (d *N211) outputReader(ctx context.Context) {
+func (d *n211) outputReader(ctx context.Context) {
 	scanner := bufio.NewScanner(d.port)
 	for scanner.Scan() {
 		select {
@@ -113,7 +111,7 @@ func (d *N211) outputReader(ctx context.Context) {
 }
 
 // drainOutput drains the output channel
-func (d *N211) drainOutput() {
+func (d *n211) drainOutput() {
 	for len(d.outputChan) > 0 {
 		select {
 		case s := <-d.outputChan:
@@ -130,7 +128,7 @@ func (d *N211) drainOutput() {
 // the device so that you can focus on the data you want and not have
 // to track stuff that you aren't really expecting or are interested
 // in.  (Like when you get URC messages).
-func (d *N211) consumeOutput(s string) {
+func (d *n211) consumeOutput(s string) {
 	if d.debug {
 		log.Printf("CONSUME '%s'", s)
 	}
@@ -140,7 +138,7 @@ func (d *N211) consumeOutput(s string) {
 // string appending CRLF to the device, then it reads the response and
 // calls fn with each line in the response as long as fn returns
 // ErrContinueReading.
-func (d *N211) transact(s string, fn func(string) error) error {
+func (d *n211) transact(s string, fn func(string) error) error {
 	var debugLog []string
 
 	d.drainOutput()
