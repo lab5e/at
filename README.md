@@ -1,5 +1,7 @@
 # AT command library
 
+[![GoDoc](https://godoc.org/github.com/lab5e/at?status.svg)](https://godoc.org/github.com/lab5e/at)
+
 **This is a work in progress.  Use at your own risk**
 
 The AT command library is a Go library for communicating with mobile
