@@ -15,7 +15,7 @@ import (
 func (d *n211) CreateUDPSocket(port int) (int, error) {
 	// Section 16.24.3 states that this port is reserved
 	if port == 5683 {
-		return -1, errors.New("Reserved port value")
+		return -1, errors.New("reserved port value")
 	}
 
 	cmd := "AT+NSOCR=\"DGRAM\",17"
@@ -24,7 +24,7 @@ func (d *n211) CreateUDPSocket(port int) (int, error) {
 	}
 
 	socket := 0
-	err := d.transact(cmd, func(s string) error {
+	err := d.cmd.Transact(cmd, func(s string) error {
 		n, err := strconv.Atoi(s)
 		if err != nil {
 			return nil
@@ -41,7 +41,7 @@ func (d *n211) SendUDP(socket int, address net.IP, remotePort int, data []byte) 
 	lengthReturn := 0
 
 	cmd := fmt.Sprintf("AT+NSOST=%d,\"%s\",%d,%d,\"%x\"", socket, address.String(), remotePort, len(data), data)
-	err := d.transact(cmd, func(s string) error {
+	err := d.cmd.Transact(cmd, func(s string) error {
 		parts := strings.Split(s, ",")
 		var err error
 		if len(parts) == 2 {
@@ -69,7 +69,7 @@ func (d *n211) SendUDP(socket int, address net.IP, remotePort int, data []byte) 
 func (d *n211) ReceiveUDP(socket int, length int) (*at.ReceivedData, error) {
 	var data at.ReceivedData
 
-	err := d.transact(fmt.Sprintf("AT+NSORF=%d,%d", socket, length), func(s string) error {
+	err := d.cmd.Transact(fmt.Sprintf("AT+NSORF=%d,%d", socket, length), func(s string) error {
 		var err error
 
 		parts := strings.Split(s, ",")
@@ -82,7 +82,7 @@ func (d *n211) ReceiveUDP(socket int, length int) (*at.ReceivedData, error) {
 			return err
 		}
 
-		data.IP = trimQuotes(parts[1])
+		data.IP = at.TrimQuotes(parts[1])
 
 		data.Port, err = strconv.Atoi(parts[2])
 		if err != nil {
@@ -107,5 +107,5 @@ func (d *n211) ReceiveUDP(socket int, length int) (*at.ReceivedData, error) {
 }
 
 func (d *n211) CloseUDPSocket(socket int) error {
-	return d.transact(fmt.Sprintf("AT+NSOCL=%d", socket), nil)
+	return d.cmd.Transact(fmt.Sprintf("AT+NSOCL=%d", socket), nil)
 }
