@@ -5,9 +5,21 @@ import (
 	"context"
 	"errors"
 	"log"
+	"regexp"
 	"time"
 
 	"github.com/tarm/serial"
+)
+
+var (
+	// IMSIRegex is a regexp that matches an IMSI number
+	IMSIRegex = regexp.MustCompile("([0-9]{5,15})")
+
+	// IMEIRegex is a regexp that matches an IMEI number
+	IMEIRegex = regexp.MustCompile(`\+CGSN: ([0-9]{5,15})`)
+
+	// CCIDRegex is a regexp that matches an CCID
+	CCIDRegex = regexp.MustCompile(`\+CCID: ([0-9]{5,15})`)
 )
 
 var (

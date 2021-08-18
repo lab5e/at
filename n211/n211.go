@@ -6,6 +6,8 @@ import (
 	"github.com/lab5e/at"
 )
 
+const DefaultBaudRate = 9600
+
 // N211 maintains the state for connection to Sara N211
 type n211 struct {
 	cmd *at.CommandInterface

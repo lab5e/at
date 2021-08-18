@@ -3,21 +3,10 @@ package n211
 import (
 	"errors"
 	"fmt"
-	"regexp"
 	"strconv"
 	"strings"
 
 	"github.com/lab5e/at"
-)
-
-var (
-	// IMSIRegex ...
-	imsiRegex = regexp.MustCompile("([0-9]{5,15})")
-
-	// IMEIRegex ...
-	imeiRegex = regexp.MustCompile(`\+CGSN: ([0-9]{5,15})`)
-	// CCIDRegex ...
-	ccidRegex = regexp.MustCompile(`\+CCID: ([0-9]{5,15})`)
 )
 
 // AT ...
@@ -35,7 +24,7 @@ func (d *n211) GetIMSI() (string, error) {
 	var imsi string
 
 	err := d.cmd.Transact("AT+CIMI", func(s string) error {
-		sub := imsiRegex.FindStringSubmatch(s)
+		sub := at.IMSIRegex.FindStringSubmatch(s)
 		if len(sub) > 0 {
 			imsi = sub[1]
 		}
@@ -49,7 +38,7 @@ func (d *n211) GetIMEI() (string, error) {
 	var imsi string
 
 	err := d.cmd.Transact("AT+CGSN=1", func(s string) error {
-		sub := imeiRegex.FindStringSubmatch(s)
+		sub := at.IMEIRegex.FindStringSubmatch(s)
 		if len(sub) > 0 {
 			imsi = sub[1]
 		}
@@ -63,7 +52,7 @@ func (d *n211) GetCCID() (string, error) {
 	var ccid string
 
 	err := d.cmd.Transact("AT+CCID", func(s string) error {
-		sub := ccidRegex.FindStringSubmatch(s)
+		sub := at.CCIDRegex.FindStringSubmatch(s)
 		if len(sub) > 0 {
 			ccid = sub[1]
 		}
