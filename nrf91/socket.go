@@ -12,100 +12,90 @@ import (
 	"github.com/lab5e/at"
 )
 
+// Note: There is only a single socket in the LTE modem. The port parameter may be 0, then the
+// socket won't be bound to a port.
 func (d *nrf91) CreateUDPSocket(port int) (int, error) {
-	// Section 16.24.3 states that this port is reserved
-	if port == 5683 {
-		return -1, errors.New("reserved port value")
+	// Parameters:
+	// #1: 0 - close, 1 - open ipv4, 2 - open ipv6
+	// #2: 1 - TCP, 2 - UDP
+	// #3: 0 - client, 1- server
+
+	err := d.cmd.Transact("AT#XSOCKET=1,2,0", func(s string) error {
+		// This will just return "OK"
+		return nil
+	})
+	if err != nil {
+		return 0, err
 	}
 
-	cmd := "AT+NSOCR=\"DGRAM\",17"
+	// Bind to a port if a port is set
 	if port != 0 {
-		cmd = fmt.Sprintf("AT+NSOCR=\"DGRAM\",17,%d,1", port)
-	}
-
-	socket := 0
-	err := d.cmd.Transact(cmd, func(s string) error {
-		n, err := strconv.Atoi(s)
-		if err != nil {
+		err = d.cmd.Transact(fmt.Sprintf("AT#XBIND=%d", port), func(s string) error {
+			// This returns just OK
 			return nil
-		}
-		socket = n
-		return nil
-	})
-
-	return socket, err
+		})
+	}
+	return 1, err
 }
 
-func (d *n211) SendUDP(socket int, address net.IP, remotePort int, data []byte) (int, error) {
-	socketReturn := 0
-	lengthReturn := 0
-
-	cmd := fmt.Sprintf("AT+NSOST=%d,\"%s\",%d,%d,\"%x\"", socket, address.String(), remotePort, len(data), data)
-	err := d.cmd.Transact(cmd, func(s string) error {
-		parts := strings.Split(s, ",")
-		var err error
-		if len(parts) == 2 {
-			socketReturn, err = strconv.Atoi(parts[0])
-			if err != nil {
-				return err
+func (d *nrf91) SendUDP(socket int, address net.IP, remotePort int, data []byte) (int, error) {
+	if socket != 1 {
+		return 0, errors.New("unknown socket ID")
+	}
+	var bytesSent = 0
+	var err error
+	err = d.cmd.Transact(
+		fmt.Sprintf(`AT#XSENDTO="%s",%d,0,"%s"`, address.String(), remotePort, hex.EncodeToString(data)),
+		func(s string) error {
+			if strings.TrimSpace(s) == "" {
+				return nil
 			}
-
-			lengthReturn, err = strconv.Atoi(parts[1])
-			if err != nil {
-				return err
+			parts := strings.Split(s, ":")
+			if len(parts) == 2 {
+				bytesSent, err = strconv.Atoi(strings.TrimSpace(parts[1]))
+				if err != nil {
+					log.Printf("Could not parse byte count from %s", parts[1])
+					return errors.New("could not parse number of bytes")
+				}
+				return nil
 			}
-
-			// These should be identical or there is something wrong
-			if socket != socketReturn {
-				log.Printf("Inconsistency: socket in response did not match socket in request")
-			}
-		}
-		return nil
-	})
-
-	return lengthReturn, err
+			log.Printf("Could not parse response from modem: %s", s)
+			return errors.New("uknown response")
+		})
+	return bytesSent, err
 }
 
-func (d *n211) ReceiveUDP(socket int, length int) (*at.ReceivedData, error) {
+// Note: Receive has a 10 second timeout
+func (d *nrf91) ReceiveUDP(socket int, length int) (*at.ReceivedData, error) {
 	var data at.ReceivedData
 
-	err := d.cmd.Transact(fmt.Sprintf("AT+NSORF=%d,%d", socket, length), func(s string) error {
-		var err error
-
-		parts := strings.Split(s, ",")
-		if len(parts) < 6 {
+	err := d.cmd.Transact("AT#XRECVFROM=10", func(s string) error {
+		// We'll recive at least two lines - first the data, then a line with #XRECVFROM=<size>,"<ip>"
+		if strings.HasPrefix(s, "#XRECVFROM:") {
+			parts := strings.Split(s, "FROM:")
+			if len(parts) != 2 {
+				return errors.New("could not parse recvfrom response")
+			}
+			sizeAddr := strings.Split(parts[1], ",")
+			if len(sizeAddr) != 2 {
+				return errors.New("could not parse size and addr in recvfrom response")
+			}
+			var err error
+			data.Length, err = strconv.Atoi(sizeAddr[0])
+			if err != nil {
+				return err
+			}
+			data.IP = at.TrimQuotes(sizeAddr[1])
 			return nil
 		}
-
-		data.Socket, err = strconv.Atoi(parts[0])
-		if err != nil {
-			return err
-		}
-
-		data.IP = at.TrimQuotes(parts[1])
-
-		data.Port, err = strconv.Atoi(parts[2])
-		if err != nil {
-			return err
-		}
-
-		data.Length, err = strconv.Atoi(parts[3])
-		if err != nil {
-			return err
-		}
-
-		// the data is in hex so we have to decode it first
-		data.Data, err = hex.DecodeString(parts[4])
-		if err != nil {
-			return err
-		}
-
+		data.Data = []byte(s)
+		data.Socket = 1
 		return nil
 	})
 
 	return &data, err
 }
 
-func (d *n211) CloseUDPSocket(socket int) error {
-	return d.cmd.Transact(fmt.Sprintf("AT+NSOCL=%d", socket), nil)
+func (d *nrf91) CloseUDPSocket(socket int) error {
+	return d.cmd.Transact("AT#XSOCKET=0", nil)
 }

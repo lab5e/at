@@ -3,6 +3,7 @@ package nrf91
 import (
 	"errors"
 	"fmt"
+	"log"
 	"strconv"
 	"strings"
 
@@ -34,22 +35,31 @@ func (d *nrf91) GetIMSI() (string, error) {
 }
 
 func (d *nrf91) GetIMEI() (string, error) {
-	var imsi string
+	var imei string
 
 	err := d.cmd.Transact("AT+CGSN", func(s string) error {
-		sub := at.IMEIRegex.FindStringSubmatch(s)
-		if len(sub) > 0 {
-			imsi = sub[1]
+		if strings.TrimSpace(s) == "" {
+			return nil
 		}
+		imei = s
 		return nil
 	})
 
-	return imsi, err
+	return imei, err
 }
 
 func (d *nrf91) GetCCID() (string, error) {
-	// Not supported on older versions of the AT client
-	return "", errors.New("not supported")
+	iccid := ""
+	err := d.cmd.Transact("AT%XICCID", func(s string) error {
+		parts := strings.Split(s, ":")
+		if len(parts) != 2 {
+			log.Printf("Unable to parse response AT%%XICCID: %s", s)
+			return errors.New("unable to parse response")
+		}
+		iccid = strings.TrimSpace(parts[1])
+		return nil
+	})
+	return iccid, err
 }
 
 func (d *nrf91) GetAddr() (int, string, error) {
@@ -87,4 +97,52 @@ func (d *nrf91) SetRadio(on bool) error {
 
 func (d *nrf91) GetStats() (*at.Stats, error) {
 	return nil, errors.New("not supported")
+}
+
+func (d *nrf91) SetAPN(apn string) error {
+
+	err := d.cmd.Transact(fmt.Sprintf("AT+CGDCONT=1,\"IP\",\"%s\"", apn), nil)
+	if err != nil {
+		return err
+	}
+
+	err = d.cmd.Transact("AT+CGACT=1,1", func(s string) error {
+		return nil
+	})
+	return err
+}
+
+func (d *nrf91) GetAPN() (*at.APN, error) {
+	var apn = &at.APN{}
+
+	err := d.cmd.Transact("AT+CGDCONT?", func(s string) error {
+		var err error
+		if st := strings.TrimPrefix(s, "+CGDCONT: "); st != s {
+			parts := strings.Split(st, ",")
+			if len(parts) < 4 {
+				return errors.New("missing some fields in response")
+			}
+
+			apn.ContextIdentifier, err = strconv.Atoi(parts[0])
+			if err != nil {
+				return errors.New("invalid CID")
+			}
+			apn.PDPType = at.TrimQuotes(parts[1])
+			apn.Name = at.TrimQuotes(parts[2])
+			apn.Address = at.TrimQuotes(parts[3])
+			return nil
+		}
+
+		return nil
+	})
+
+	return apn, err
+}
+
+func (d *nrf91) Reboot() error {
+	return errors.New("not supported")
+}
+
+func (d *nrf91) SetAutoconnect(bool) error {
+	return errors.New("not supported")
 }

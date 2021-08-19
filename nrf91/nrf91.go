@@ -10,7 +10,7 @@ type nrf91 struct {
 
 func New(serialDevice string, baudRate int) at.Device {
 	return &nrf91{
-		cmd: at.NewCommandInterface(device, baudRate),
+		cmd: at.NewCommandInterface(serialDevice, baudRate),
 	}
 }
 
