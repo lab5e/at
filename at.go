@@ -64,8 +64,8 @@ type Device interface {
 	// Reboot device
 	Reboot() error
 
-	// SendCRLF sends a string to the device adding CRLF to the end of the line
-	SendCRLF(s string)
+	//	// SendCRLF sends a string to the device adding CRLF to the end of the line
+	//	SendCRLF(s string)
 
 	// GetIMSI reads the IMSI from the device
 	GetIMSI() (string, error)
@@ -88,10 +88,11 @@ type Device interface {
 	GetAPN() (*APN, error)
 
 	// GetAddr returns the context identifier (CID) and address
-	// currently allocated to the device.
+	// currently allocated to the device. This (usually) invokes the AT+CGPADDR command.
 	GetAddr() (int, string, error)
 
-	// SetRadio turns the radio on if on is true and off is on is false.
+	// SetRadio turns the radio on if on is true and off is on is false. This (usually) invokes the AT+CFUN
+	// command
 	SetRadio(bool) error
 
 	// GetStats returns the most recent operational statistics.  Note that

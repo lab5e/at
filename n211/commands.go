@@ -3,44 +3,28 @@ package n211
 import (
 	"errors"
 	"fmt"
-	"regexp"
 	"strconv"
 	"strings"
 
 	"github.com/lab5e/at"
 )
 
-var (
-	// IMSIRegex ...
-	imsiRegex = regexp.MustCompile("([0-9]{5,15})")
-
-	// IMEIRegex ...
-	imeiRegex = regexp.MustCompile("\\+CGSN: ([0-9]{5,15})")
-
-	// CCIDRegex ...
-	ccidRegex = regexp.MustCompile("\\+CCID: ([0-9]{5,15})")
-)
-
 // AT ...
 func (d *n211) AT() error {
-	return d.transact("AT", func(s string) error {
+	return d.cmd.Transact("AT", func(s string) error {
 		return nil
 	})
 }
 
 func (d *n211) SetDebug(debug bool) {
-	d.debug = debug
-}
-
-func (d *n211) SendCRLF(s string) {
-	d.inputChan <- (s + "\r\n")
+	d.cmd.SetDebug(debug)
 }
 
 func (d *n211) GetIMSI() (string, error) {
 	var imsi string
 
-	err := d.transact("AT+CIMI", func(s string) error {
-		sub := imsiRegex.FindStringSubmatch(s)
+	err := d.cmd.Transact("AT+CIMI", func(s string) error {
+		sub := at.IMSIRegex.FindStringSubmatch(s)
 		if len(sub) > 0 {
 			imsi = sub[1]
 		}
@@ -53,8 +37,8 @@ func (d *n211) GetIMSI() (string, error) {
 func (d *n211) GetIMEI() (string, error) {
 	var imsi string
 
-	err := d.transact("AT+CGSN=1", func(s string) error {
-		sub := imeiRegex.FindStringSubmatch(s)
+	err := d.cmd.Transact("AT+CGSN=1", func(s string) error {
+		sub := at.IMEIRegex.FindStringSubmatch(s)
 		if len(sub) > 0 {
 			imsi = sub[1]
 		}
@@ -67,8 +51,8 @@ func (d *n211) GetIMEI() (string, error) {
 func (d *n211) GetCCID() (string, error) {
 	var ccid string
 
-	err := d.transact("AT+CCID", func(s string) error {
-		sub := ccidRegex.FindStringSubmatch(s)
+	err := d.cmd.Transact("AT+CCID", func(s string) error {
+		sub := at.CCIDRegex.FindStringSubmatch(s)
 		if len(sub) > 0 {
 			ccid = sub[1]
 		}
@@ -79,13 +63,13 @@ func (d *n211) GetCCID() (string, error) {
 
 func (d *n211) SetAutoconnect(autoconnect bool) error {
 	if autoconnect {
-		return d.transact("AT+NCONFIG=\"AUTOCONNECT\",\"TRUE\"", nil)
+		return d.cmd.Transact("AT+NCONFIG=\"AUTOCONNECT\",\"TRUE\"", nil)
 	}
-	return d.transact("AT+NCONFIG=\"AUTOCONNECT\",\"FALSE\"", nil)
+	return d.cmd.Transact("AT+NCONFIG=\"AUTOCONNECT\",\"FALSE\"", nil)
 }
 
 func (d *n211) Reboot() error {
-	return d.transact("AT+NRB", nil)
+	return d.cmd.Transact("AT+NRB", nil)
 }
 
 func (d *n211) SetAPN(apn string) error {
@@ -99,7 +83,7 @@ func (d *n211) SetAPN(apn string) error {
 		return err
 	}
 
-	err = d.transact(fmt.Sprintf("AT+CGDCONT=0,\"IP\",\"%s\"", apn), nil)
+	err = d.cmd.Transact(fmt.Sprintf("AT+CGDCONT=0,\"IP\",\"%s\"", apn), nil)
 	if err != nil {
 		return err
 	}
@@ -120,7 +104,7 @@ func (d *n211) SetAPN(apn string) error {
 func (d *n211) GetAPN() (*at.APN, error) {
 	var apn = &at.APN{}
 
-	err := d.transact("AT+CGDCONT?", func(s string) error {
+	err := d.cmd.Transact("AT+CGDCONT?", func(s string) error {
 		var err error
 		if st := strings.TrimPrefix(s, "+CGDCONT: "); st != s {
 			parts := strings.Split(st, ",")
@@ -132,9 +116,9 @@ func (d *n211) GetAPN() (*at.APN, error) {
 			if err != nil {
 				return errors.New("invalid CID")
 			}
-			apn.PDPType = trimQuotes(parts[1])
-			apn.Name = trimQuotes(parts[2])
-			apn.Address = trimQuotes(parts[3])
+			apn.PDPType = at.TrimQuotes(parts[1])
+			apn.Name = at.TrimQuotes(parts[2])
+			apn.Address = at.TrimQuotes(parts[3])
 			return nil
 		}
 
@@ -148,7 +132,7 @@ func (d *n211) GetAddr() (int, string, error) {
 	var cid int
 	var addr string
 
-	err := d.transact("AT+CGPADDR", func(s string) error {
+	err := d.cmd.Transact("AT+CGPADDR", func(s string) error {
 		var err error
 		if st := strings.TrimPrefix(s, "+CGPADDR: "); st != s {
 			parts := strings.Split(st, ",")
@@ -161,7 +145,7 @@ func (d *n211) GetAddr() (int, string, error) {
 				return errors.New("invalid CID")
 			}
 
-			addr = trimQuotes(parts[1])
+			addr = at.TrimQuotes(parts[1])
 		}
 		return nil
 	})
@@ -174,13 +158,13 @@ func (d *n211) SetRadio(on bool) error {
 	if on {
 		ind = 1
 	}
-	return d.transact(fmt.Sprintf("AT+CFUN=%d", ind), nil)
+	return d.cmd.Transact(fmt.Sprintf("AT+CFUN=%d", ind), nil)
 }
 
 func (d *n211) GetStats() (*at.Stats, error) {
 	var stats at.Stats
 
-	err := d.transact("AT+NUESTATS", func(s string) error {
+	err := d.cmd.Transact("AT+NUESTATS", func(s string) error {
 		parts := strings.Split(s, ",")
 		if len(parts) < 2 {
 			return nil
