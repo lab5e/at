@@ -8,6 +8,7 @@ import (
 	"net"
 
 	"github.com/lab5e/at"
+	"github.com/lab5e/at/bg95"
 	"github.com/lab5e/at/n211"
 	"github.com/lab5e/at/nrf91"
 )
@@ -31,6 +32,8 @@ func main() {
 	switch strings.ToLower(deviceType) {
 	case "n211":
 		device = n211.New(serialDevice, n211.DefaultBaudRate)
+	case "bg95":
+		device = bg95.New(serialDevice, bg95.DefaultBaudRate)
 	case "nrf91":
 		device = nrf91.New(serialDevice, nrf91.DefaultBaudRate)
 	default:

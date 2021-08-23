@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/lab5e/at"
+	"github.com/lab5e/at/bg95"
 	"github.com/lab5e/at/n211"
 	"github.com/lab5e/at/nrf91"
 )
@@ -19,6 +20,8 @@ func main() {
 	switch strings.ToLower(os.Args[1]) {
 	case "nrf91":
 		device = nrf91.New(os.Args[2], nrf91.DefaultBaudRate)
+	case "bg95":
+		device = bg95.New(os.Args[2], bg95.DefaultBaudRate)
 	case "n211":
 		device = n211.New(os.Args[2], n211.DefaultBaudRate)
 	default:

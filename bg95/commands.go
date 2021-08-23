@@ -1,4 +1,4 @@
-package nrf91
+package bg95
 
 import (
 	"errors"
@@ -6,12 +6,12 @@ import (
 	"strings"
 )
 
-func (d *nrf91) GetCCID() (string, error) {
+func (d *bg95) GetCCID() (string, error) {
 	iccid := ""
-	err := d.cmd.Transact("AT%XICCID", func(s string) error {
+	err := d.cmd.Transact("AT+CCID", func(s string) error {
 		parts := strings.Split(s, ":")
 		if len(parts) != 2 {
-			log.Printf("Unable to parse response AT%%XICCID: %s", s)
+			log.Printf("Unable to parse response AT+ICCID: %s", s)
 			return errors.New("unable to parse response")
 		}
 		iccid = strings.TrimSpace(parts[1])

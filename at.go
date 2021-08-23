@@ -61,12 +61,6 @@ type Device interface {
 
 	AT() error
 
-	// Reboot device
-	Reboot() error
-
-	//	// SendCRLF sends a string to the device adding CRLF to the end of the line
-	//	SendCRLF(s string)
-
 	// GetIMSI reads the IMSI from the device
 	GetIMSI() (string, error)
 
@@ -75,10 +69,6 @@ type Device interface {
 
 	// GetCCID returns the CCID of the SIM
 	GetCCID() (string, error)
-
-	// SetAutoconnect turns on autoconnect if the autoconnect
-	// parameter is true and off if it is false
-	SetAutoconnect(autoconnect bool) error
 
 	// SetAPN sets the APN.  Be aware that this operation performs
 	// multiple transactions and reboots the device.
@@ -94,11 +84,6 @@ type Device interface {
 	// SetRadio turns the radio on if on is true and off is on is false. This (usually) invokes the AT+CFUN
 	// command
 	SetRadio(bool) error
-
-	// GetStats returns the most recent operational statistics.  Note that
-	// this translates to the AT+NUESTATS command and doesn't specify any
-	// parameters.
-	GetStats() (*Stats, error)
 
 	// CreateUDPSocket creates an UDP socket. If the port is non-zero,
 	// receiving is enabled and +NSONMI URCs will appear for any
