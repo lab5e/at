@@ -5,19 +5,15 @@ import "github.com/lab5e/at"
 const DefaultBaudRate = 115200
 
 type nrf91 struct {
+	at.DefaultImplementation
+
 	cmd *at.CommandInterface
 }
 
 func New(serialDevice string, baudRate int) at.Device {
+	cmdIF := at.NewCommandInterface(serialDevice, baudRate)
 	return &nrf91{
-		cmd: at.NewCommandInterface(serialDevice, baudRate),
+		DefaultImplementation: at.DefaultImplementation{Cmd: cmdIF},
+		cmd:                   cmdIF,
 	}
-}
-
-func (d *nrf91) Start() error {
-	return d.cmd.Start()
-}
-
-func (d *nrf91) Close() {
-	d.cmd.Close()
 }

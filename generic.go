@@ -6,6 +6,7 @@ import (
 	"errors"
 	"log"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/tarm/serial"
@@ -44,6 +45,9 @@ type CommandInterface struct {
 	debug       bool
 	ctx         context.Context
 	cancel      context.CancelFunc
+	errors      []string
+	successes   []string
+	splits      []string
 }
 
 func NewCommandInterface(device string, baudRate int) *CommandInterface {
@@ -57,7 +61,27 @@ func NewCommandInterface(device string, baudRate int) *CommandInterface {
 		debug:       false,
 		ctx:         ctx,
 		cancel:      cancel,
+		errors:      []string{"ERROR"},
+		successes:   []string{"OK"},
+		splits:      []string{"\r\n"},
 	}
+}
+
+// Some modems (hello BG95) sends additional text string when a command completes successful.
+func (c *CommandInterface) AddSuccessOutput(newSuccess string) {
+	c.successes = append(c.successes, newSuccess)
+}
+
+// Some modems (hello BG95) sends additional text strings when a command completes with an error
+func (c *CommandInterface) AddErrorOutput(newError string) {
+	c.errors = append(c.errors, newError)
+}
+
+// Add a command split character or set of characters. Since some modems (hello BG95) changes
+// its behaviour in certain comamnds the CRLF sequence isn't always emitted when the modem is
+// ready to accept new characters.
+func (c *CommandInterface) AddSplitChars(newSplit string) {
+	c.splits = append(c.splits, newSplit)
 }
 
 func (c *CommandInterface) SetDebug(debug bool) {
@@ -105,9 +129,23 @@ func (c *CommandInterface) inputReader(ctx context.Context) {
 	}
 }
 
+func (c *CommandInterface) splitFunc(data []byte, atEOF bool) (advance int, token []byte, err error) {
+	for _, v := range c.splits {
+		pos := strings.Index(string(data), v)
+		if pos >= 0 {
+			advance = pos + len(v)
+			token = data[:pos]
+			err = nil
+			return
+		}
+	}
+	return 0, nil, nil
+}
+
 // outputReader reads output from the device and prints it out
 func (c *CommandInterface) outputReader(ctx context.Context) {
 	scanner := bufio.NewScanner(c.port)
+	scanner.Split(c.splitFunc)
 	for scanner.Scan() {
 		select {
 		case c.outputChan <- scanner.Text():
@@ -177,24 +215,29 @@ func (c *CommandInterface) Transact(s string, fn func(string) error) error {
 
 		// Handle OK response which should always be the last line in
 		// any successful command (except unsolicited messages)
-		if line == "OK" {
-			if c.debug {
-				for n, lin := range debugLog {
-					log.Printf("[%2d] %s", n, lin)
+		for _, v := range c.successes {
+			if line == v {
+				if c.debug {
+					for n, lin := range debugLog {
+						log.Printf("[%2d] %s", n, lin)
+					}
 				}
+				return nil
 			}
-			return nil
 		}
 
 		// Handle error response
-		if line == "ERROR" {
-			// When we have an error we're going to log it regardless
-			// of whether debug is on or off.  You kind of want to
-			// know about errors.
-			for n, lin := range debugLog {
-				log.Printf("[%2d] %s", n, lin)
+		for _, v := range c.errors {
+			if line == v {
+				// When we have an error we're going to log it regardless
+				// of whether debug is on or off.  You kind of want to
+				// know about errors.
+				for n, lin := range debugLog {
+					log.Printf("[%2d] %s", n, lin)
+				}
+				return ErrATError
+
 			}
-			return ErrATError
 		}
 
 		c.consumeOutput(line)
