@@ -13,8 +13,21 @@ type bg95 struct {
 
 func New(serialDevice string, baudRate int) at.Device {
 	cmdIF := at.NewCommandInterface(serialDevice, baudRate)
+	cmdIF.AddErrorOutput("SEND FAIL")
+	cmdIF.AddSplitChars(">")
+	cmdIF.AddSuccessOutput("SEND OK")
 	return &bg95{
 		DefaultImplementation: at.DefaultImplementation{Cmd: cmdIF},
 		cmd:                   cmdIF,
 	}
+}
+
+func (d *bg95) Start() error {
+	if err := d.Cmd.Start(); err != nil {
+		return err
+	}
+	// BG95 has echo turned on by default. Turn off
+	return d.Cmd.Transact("ATE0", func(s string) error {
+		return nil
+	})
 }

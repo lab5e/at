@@ -36,7 +36,7 @@ func (d *bg95) CreateUDPSocket(port int) (int, error) {
 	if socketno > 11 {
 		return 0, errors.New("sockets exhausted")
 	}
-	err := d.cmd.Transact(fmt.Sprintf(`AT+QIOPEN=1,%d,"UDP SERVICE","0.0.0.0",%d,1`, socketno, port), func(s string) error {
+	err := d.cmd.Transact(fmt.Sprintf(`AT+QIOPEN=1,%d,"UDP SERVICE","0.0.0.0",0,%d`, socketno, port), func(s string) error {
 		// The module will return <connection id>,<error> and <error> should - obviously be 0
 		if strings.HasPrefix(s, "+QIOPEN") {
 			elems := strings.Split(s, ":")
@@ -66,22 +66,15 @@ func (d *bg95) CreateUDPSocket(port int) (int, error) {
 	return socketno, err
 }
 
-var errDummy = errors.New("not an error")
-
 // This might not work with arbitrary binary data since the data is sent as a string
 func (d *bg95) SendUDP(socket int, address net.IP, remotePort int, data []byte) (int, error) {
 	// Start by sending AT+SEND and when we receive the '>' character send the payload. We should get a "SEND OK" or "SEND ERROR" back
-	err := d.cmd.Transact(fmt.Sprintf(`AT+QISEND=%d,%d,"%s",%d\r\n%s`,
-		socket, len(data), address.String(), remotePort, string(data)), func(s string) error {
-		if s == "SEND ERROR" {
-			return errors.New("send error")
-		}
-		if s == "SEND OK" {
-			return errDummy
-		}
+	err := d.cmd.Transact(fmt.Sprintf(`AT+QISEND=%d,%d,"%s",%d`,
+		socket, len(data), address.String(), remotePort), func(s string) error {
+		d.cmd.SendCRLF(string(data))
 		return nil
 	})
-	if err == errDummy {
+	if err == nil {
 		return len(data), nil
 	}
 	return 0, err
@@ -89,7 +82,39 @@ func (d *bg95) SendUDP(socket int, address net.IP, remotePort int, data []byte) 
 
 // Note: Receive has a 10 second timeout
 func (d *bg95) ReceiveUDP(socket int, length int) (*at.ReceivedData, error) {
-	return nil, errors.New("not implemented")
+	ret := &at.ReceivedData{}
+	err := d.cmd.Transact(fmt.Sprintf("AT+QIRD=%d", socket), func(s string) error {
+		if strings.HasPrefix(s, "+QIRD:") {
+			log.Printf("Got data: %s", s)
+			// +QIRD: <read_actual_length>,<remoteIP>,<remote_port> <CR><LF><data>
+			// This line will contain the remote IP, port and length
+			fields := strings.Split(s[6:], ",")
+			if len(fields) == 1 {
+				// A single number is "no new data"
+				return errors.New("no more data")
+			}
+			if len(fields) != 3 {
+				log.Printf("Error parsing returned value: %s", s)
+				return errors.New("could not parse return fields")
+			}
+			var err error
+			ret.Length, err = strconv.Atoi(strings.TrimSpace(fields[0]))
+			if err != nil {
+				log.Printf("Length field error: %s", s)
+				return errors.New("invalid length field")
+			}
+			ret.IP = fields[1]
+			ret.Port, err = strconv.Atoi(strings.TrimSpace(fields[2]))
+			if err != nil {
+				log.Printf("Port field error: %s", s)
+				return errors.New("invalid port field")
+			}
+			return nil
+		}
+		ret.Data = append(ret.Data, []byte(s)...)
+		return nil
+	})
+	return ret, err
 }
 
 func (d *bg95) CloseUDPSocket(socket int) error {

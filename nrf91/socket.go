@@ -65,11 +65,11 @@ func (d *nrf91) SendUDP(socket int, address net.IP, remotePort int, data []byte)
 	return bytesSent, err
 }
 
-// Note: Receive has a 10 second timeout
+// Note: Receive has a 30 second timeout
 func (d *nrf91) ReceiveUDP(socket int, length int) (*at.ReceivedData, error) {
 	var data at.ReceivedData
 
-	err := d.cmd.Transact("AT#XRECVFROM=10", func(s string) error {
+	err := d.cmd.Transact("AT#XRECVFROM=30", func(s string) error {
 		// We'll recive at least two lines - first the data, then a line with #XRECVFROM=<size>,"<ip>"
 		if strings.HasPrefix(s, "#XRECVFROM:") {
 			parts := strings.Split(s, "FROM:")
@@ -81,14 +81,14 @@ func (d *nrf91) ReceiveUDP(socket int, length int) (*at.ReceivedData, error) {
 				return errors.New("could not parse size and addr in recvfrom response")
 			}
 			var err error
-			data.Length, err = strconv.Atoi(sizeAddr[0])
+			data.Length, err = strconv.Atoi(strings.TrimSpace(sizeAddr[1]))
 			if err != nil {
 				return err
 			}
 			data.IP = at.TrimQuotes(sizeAddr[1])
 			return nil
 		}
-		data.Data = []byte(s)
+		data.Data = append(data.Data, []byte(s)...)
 		data.Socket = 1
 		return nil
 	})

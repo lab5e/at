@@ -4,8 +4,7 @@ import (
 	"flag"
 	"log"
 	"strings"
-
-	"net"
+	"time"
 
 	"github.com/lab5e/at"
 	"github.com/lab5e/at/bg95"
@@ -14,18 +13,16 @@ import (
 )
 
 func main() {
-	var deviceType, serialDevice, ip, message string
+	var deviceType, serialDevice string
 	var port int
 	var debug bool
 	flag.StringVar(&deviceType, "device", "nrf91", "Device type")
 	flag.StringVar(&serialDevice, "serial", "/dev/serial", "Serial device")
-	flag.StringVar(&ip, "ip", "172.16.15.14", "IP address")
-	flag.IntVar(&port, "port", 0, "Server port")
-	flag.StringVar(&message, "message", "", "Message to send")
+	flag.IntVar(&port, "port", 0, "Local port")
 	flag.BoolVar(&debug, "debug", false, "Show debug messages")
 	flag.Parse()
-	if len(message) == 0 {
-		log.Fatalf("Needs a message to send")
+	if port == 0 {
+		log.Fatalf("Must specify a port")
 	}
 	var device at.Device
 
@@ -52,7 +49,11 @@ func main() {
 		log.Fatalf("Could not enable radio: %v", err)
 	}
 
-	socket, err := device.CreateUDPSocket(4711)
+	imsi, err := device.GetIMSI()
+	if err != nil {
+		log.Fatalf("Got IMSI %s", imsi)
+	}
+	socket, err := device.CreateUDPSocket(port)
 	if err != nil {
 		log.Fatalf("Could not create UDP socket: %v", err)
 	}
@@ -61,12 +62,15 @@ func main() {
 		log.Printf("Closed UDP socket")
 	}()
 
-	n, err := device.SendUDP(socket, net.ParseIP(ip), port, []byte(message))
-	if err != nil {
-		log.Fatalf("Error sending UDP: %v", err)
+	log.Printf("Waiting for data.. Running on local port %d with IMSI %s", port, imsi)
+
+	for {
+		data, err := device.ReceiveUDP(socket, 128)
+		if err != nil {
+			log.Printf("Got error receiving data: %v. Retry in 10 seconds", err)
+			time.Sleep(10 * time.Second)
+			continue
+		}
+		log.Printf("Recevied %d bytes from %s:%d: %v", data.Length, data.IP, data.Port, string(data.Data))
 	}
-	if n != len(message) {
-		log.Printf("Device sent %d bytes but expected %d", n, len(message))
-	}
-	log.Printf("Message sent to %s:%d", ip, port)
 }
