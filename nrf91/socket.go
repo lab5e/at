@@ -35,6 +35,13 @@ func (d *nrf91) CreateUDPSocket(port int) (int, error) {
 			return nil
 		})
 	}
+
+	// Set the receive timeout (SO_RCVTIMEO) to 5 seconds
+	if err := d.cmd.Transact("AT#XSOCKETOPT=1,20,5", func(s string) error {
+		return nil
+	}); err != nil {
+		log.Fatalf("Could not set receive timeout: %v", err)
+	}
 	return 1, err
 }
 
@@ -69,7 +76,7 @@ func (d *nrf91) SendUDP(socket int, address net.IP, remotePort int, data []byte)
 func (d *nrf91) ReceiveUDP(socket int, length int) (*at.ReceivedData, error) {
 	var data at.ReceivedData
 
-	err := d.cmd.Transact("AT#XRECVFROM=30", func(s string) error {
+	err := d.cmd.Transact("AT#XRECVFROM", func(s string) error {
 		// We'll recive at least two lines - first the data, then a line with #XRECVFROM=<size>,"<ip>"
 		if strings.HasPrefix(s, "#XRECVFROM:") {
 			parts := strings.Split(s, "FROM:")
